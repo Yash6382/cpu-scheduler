@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Scheduling Simulator</title>
+
+    <!-- PyScript -->
+    <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
+    <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #f5f5f7;
+            --surface: #ffffff;
+            --border: #d1d1d6;
+            --border-focus: #0071e3;
+            --text: #1d1d1f;
+            --text-muted: #6e6e73;
+            --accent: #0071e3;
+            --accent-hover: #0077ed;
+            --accent-text: #ffffff;
+            --danger: #ff3b30;
+            --success: #34c759;
+            --row-alt: #f9f9fb;
+            --radius: 10px;
+            --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 48px 16px 64px;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 18px;
+            box-shadow: var(--shadow);
+            padding: 40px 40px 32px;
+            width: 100%;
+            max-width: 760px;
+        }
+
+        .header {
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 26px;
+            font-weight: 600;
+            letter-spacing: -0.4px;
+        }
+
+        .header p {
+            margin-top: 6px;
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        /* Quantum row */
+        .quantum-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .quantum-row label {
+            font-size: 14px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .quantum-row input[type=number] {
+            width: 72px;
+            padding: 6px 10px;
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            font-size: 14px;
+            color: var(--text);
+            background: var(--surface);
+            outline: none;
+            transition: border-color 0.15s;
+        }
+
+        .quantum-row input[type=number]:focus {
+            border-color: var(--border-focus);
+        }
+
+        /* Table */
+        .table-wrap {
+            overflow-x: auto;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead th {
+            background: #f5f5f7;
+            padding: 11px 14px;
+            text-align: left;
+            font-weight: 500;
+            font-size: 13px;
+            color: var(--text-muted);
+            letter-spacing: 0.02em;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tbody tr {
+            transition: background 0.1s;
+        }
+
+        tbody tr:nth-child(even) {
+            background: var(--row-alt);
+        }
+
+        tbody tr:hover {
+            background: #eef4fd;
+        }
+
+        tbody td {
+            padding: 6px 8px;
+            vertical-align: middle;
+        }
+
+        /* Cell inputs */
+        .cell-input {
+            width: 100%;
+            padding: 7px 10px;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            font-size: 14px;
+            font-family: inherit;
+            color: var(--text);
+            background: transparent;
+            outline: none;
+            transition: border-color 0.15s, background 0.15s;
+        }
+
+        .cell-input:hover {
+            border-color: var(--border);
+            background: var(--surface);
+        }
+
+        .cell-input:focus {
+            border-color: var(--border-focus);
+            background: var(--surface);
+            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+        }
+
+        .cell-input.pid {
+            font-weight: 500;
+            width: 80px;
+            color: var(--accent);
+        }
+
+        .cell-input.invalid {
+            border-color: var(--danger) !important;
+            background: #fff5f5 !important;
+        }
+
+        /* Row actions */
+        .del-btn {
+            width: 28px;
+            height: 28px;
+            border: none;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, color 0.15s;
+            margin: 0 auto;
+        }
+
+        .del-btn:hover {
+            background: #ffe5e5;
+            color: var(--danger);
+        }
+
+        /* Action row */
+        .actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 9px 18px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            font-family: inherit;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.08s;
+            border: none;
+            outline: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--accent-hover);
+        }
+
+        .btn-secondary {
+            background: #f0f0f5;
+            color: var(--text);
+        }
+
+        .btn-secondary:hover {
+            background: #e5e5ea;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--accent);
+            padding: 9px 12px;
+        }
+
+        .btn-ghost:hover {
+            background: #eef4fd;
+        }
+
+        .btn-demo {
+            background: #f0f9ff;
+            color: #0077b6;
+            border: 1px solid #b6d9f5;
+        }
+
+        .btn-demo:hover {
+            background: #d9effc;
+        }
+
+        .spacer {
+            flex: 1;
+        }
+
+        /* Status bar */
+        .status-bar {
+            display: none;
+            margin-top: 20px;
+            padding: 12px 16px;
+            background: #f5f5f7;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--text-muted);
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-bar.visible {
+            display: flex;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Output section */
+        .output-section {
+            margin-top: 28px;
+            border-top: 1px solid var(--border);
+            padding-top: 24px;
+            display: none;
+        }
+
+        .output-section.visible {
+            display: block;
+        }
+
+        .output-header {
+            font-size: 15px;
+            font-weight: 500;
+            margin-bottom: 14px;
+            color: var(--text-muted);
+        }
+
+        .image-wrap {
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .image-wrap img {
+            width: 100%;
+            display: block;
+        }
+
+        .img-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .error-msg {
+            font-size: 12px;
+            color: var(--danger);
+            margin-top: 8px;
+            display: none;
+        }
+
+        .error-msg.visible {
+            display: block;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1d1d1f;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 13px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s;
+            z-index: 999;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* PyScript init hint */
+        #pyscript-init {
+            display: none;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        #pyscript-init.visible {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="card">
+        <div class="header">
+            <h1>CPU Scheduling Simulator</h1>
+            <p>Enter your processes below. Hit <strong>Run Simulation</strong> to run all algorithms and see the Gantt
+                chart output directly in the page.</p>
+        </div>
+        <p id="pyscript-init">⏳ Loading Python runtime… (first load may take a few seconds)</p>
+
+        <!-- Quantum -->
+        <div class="quantum-row">
+            <label for="quantum">Round Robin quantum (time units)</label>
+            <input type="number" id="quantum" value="4" min="1" max="99">
+        </div>
+
+        <!-- Table -->
+        <div class="table-wrap">
+            <table id="proc-table">
+                <thead>
+                    <tr>
+                        <th style="width:90px">Process ID</th>
+                        <th style="width:140px">Arrival Time</th>
+                        <th style="width:140px">Burst Time</th>
+                        <th style="width:42px"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbody"></tbody>
+            </table>
+        </div>
+
+        <p class="error-msg" id="error-msg"></p>
+
+        <!-- Actions -->
+        <div class="actions">
+            <button class="btn btn-ghost" onclick="addRow()">+ Add row</button>
+            <button class="btn btn-demo" onclick="loadDemo()">&#9654; Demo &amp; Run</button>
+            <div class="spacer"></div>
+            <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+            <button class="btn btn-primary" id="run-btn" onclick="runSimulator()">Run Simulation →</button>
+        </div>
+
+        <!-- Status -->
+        <div class="status-bar" id="status-bar">
+            <div class="spinner"></div>
+            <span id="status-text">Running Python scheduler…</span>
+        </div>
+
+        <!-- Output -->
+        <div class="output-section" id="output-section">
+            <div class="output-header">Simulation Output — scheduling_output.png</div>
+            <div class="image-wrap">
+                <img id="output-img" src="" alt="CPU Scheduling output chart">
+            </div>
+            <div class="img-actions">
+                <button class="btn btn-secondary" onclick="downloadImage()">&#8595; Download PNG</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- ═══════════════════ JavaScript UI (unchanged from original) ═══════════════════ -->
+    <script>
+        let rowCount = 0;
+        let pyReady = false;
+        let pendingRun = false;
+
+        function setPyReady() {
+            pyReady = true;
+            document.getElementById('pyscript-init').classList.remove('visible');
+            if (pendingRun) { pendingRun = false; triggerPyRun(); }
+        }
+
+        function addRow(pid, arrival, burst) {
+            const tbody = document.getElementById("tbody");
+            const idx = rowCount;
+            rowCount++;
+
+            const tr = document.createElement("tr");
+            tr.dataset.idx = idx;
+
+            const defaultPid = (idx === 0 || tbody.rows.length === 0) ? "P1" : autoNextPid();
+
+            tr.innerHTML = `
+    <td><input class="cell-input pid" type="text"   data-field="pid"     value="${pid ?? defaultPid}" placeholder="P1"  tabindex="${idx * 10 + 1}"></td>
+    <td><input class="cell-input"     type="number"  data-field="arrival" value="${arrival ?? ""}"          placeholder="0"   min="0" tabindex="${idx * 10 + 2}"></td>
+    <td><input class="cell-input"     type="number"  data-field="burst"   value="${burst ?? ""}"          placeholder="1"   min="0" tabindex="${idx * 10 + 3}"></td>
+    <td><button class="del-btn" title="Remove row" onclick="removeRow(this)">&#215;</button></td>
+  `;
+
+            tbody.appendChild(tr);
+
+            const pidInput = tr.querySelector('[data-field=pid]');
+            const arrInput = tr.querySelector('[data-field=arrival]');
+            const bstInput = tr.querySelector('[data-field=burst]');
+
+            arrInput.addEventListener("keydown", e => {
+                if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); bstInput.focus(); }
+                if (e.key === "Enter") { e.preventDefault(); bstInput.focus(); }
+            });
+            bstInput.addEventListener("keydown", e => {
+                if ((e.key === "Tab" && !e.shiftKey) || e.key === "Enter") {
+                    e.preventDefault();
+                    const newRow = addRow();
+                    newRow.querySelector('[data-field=arrival]').focus();
+                }
+            });
+            pidInput.addEventListener("blur", () => {
+                const v = pidInput.value.trim();
+                if (/^\d+$/.test(v)) pidInput.value = "P" + v;
+            });
+
+            return tr;
+        }
+
+        function autoNextPid() {
+            const rows = document.querySelectorAll('#tbody tr');
+            if (rows.length === 0) return "P1";
+            const last = rows[rows.length - 1].querySelector('[data-field=pid]').value.trim();
+            const m = last.match(/^([A-Za-z]+)(\d+)$/);
+            if (m) return m[1] + (parseInt(m[2]) + 1);
+            return "P" + (rows.length + 1);
+        }
+
+        function removeRow(btn) { btn.closest("tr").remove(); refreshPids(); }
+
+        function refreshPids() {
+            const rows = document.querySelectorAll('#tbody tr');
+            let allAuto = true;
+            rows.forEach((r, i) => {
+                const v = r.querySelector('[data-field=pid]').value.trim();
+                if (v !== "P" + (i + 1)) allAuto = false;
+            });
+            if (allAuto) {
+                rows.forEach((r, i) => { r.querySelector('[data-field=pid]').value = "P" + (i + 1); });
+            }
+        }
+
+        function getRows() {
+            return Array.from(document.querySelectorAll('#tbody tr')).map(tr => ({
+                pid: tr.querySelector('[data-field=pid]').value.trim(),
+                arrival: tr.querySelector('[data-field=arrival]').value,
+                burst: tr.querySelector('[data-field=burst]').value,
+                _inputs: {
+                    pid: tr.querySelector('[data-field=pid]'),
+                    arrival: tr.querySelector('[data-field=arrival]'),
+                    burst: tr.querySelector('[data-field=burst]'),
+                }
+            }));
+        }
+
+        function validate(rows) {
+            const errors = []; const pids = new Set();
+            rows.forEach(r => [r._inputs.pid, r._inputs.arrival, r._inputs.burst].forEach(el => el.classList.remove("invalid")));
+            rows.forEach((r, i) => {
+                if (!r.pid) { errors.push(`Row ${i + 1}: Process ID is empty.`); r._inputs.pid.classList.add("invalid"); }
+                if (pids.has(r.pid)) { errors.push(`Row ${i + 1}: Duplicate PID "${r.pid}".`); r._inputs.pid.classList.add("invalid"); }
+                pids.add(r.pid);
+                if (r.arrival === "" || isNaN(+r.arrival) || +r.arrival < 0) { errors.push(`Row ${i + 1}: Invalid arrival time.`); r._inputs.arrival.classList.add("invalid"); }
+                if (r.burst === "" || isNaN(+r.burst) || +r.burst < 0) { errors.push(`Row ${i + 1}: Invalid burst time.`); r._inputs.burst.classList.add("invalid"); }
+            });
+            return errors;
+        }
+
+        function runSimulator() {
+            const rows = getRows();
+            const errEl = document.getElementById("error-msg");
+
+            if (rows.length === 0) { showError("Add at least one process."); return; }
+            const errors = validate(rows);
+            if (errors.length) { showError(errors[0]); return; }
+            errEl.classList.remove("visible");
+
+            const processes = rows.map(r => ({ pid: r.pid, arrival: parseInt(r.arrival), burst: parseInt(r.burst) }));
+            const q = parseInt(document.getElementById("quantum").value) || 4;
+
+            window._schedulerProcesses = JSON.stringify(processes);
+            window._schedulerQuantum = q;
+
+            if (!pyReady) {
+                document.getElementById('pyscript-init').classList.add('visible');
+                pendingRun = true;
+                showStatus("Waiting for Python runtime…");
+                return;
+            }
+            triggerPyRun();
+        }
+
+        function triggerPyRun() {
+            showStatus("Running Python scheduler…");
+            document.getElementById("run-btn").disabled = true;
+            document.dispatchEvent(new Event("scheduler-run"));
+        }
+
+        function showStatus(msg) {
+            document.getElementById("status-text").textContent = msg;
+            document.getElementById("status-bar").classList.add("visible");
+        }
+        function hideStatus() { document.getElementById("status-bar").classList.remove("visible"); }
+
+        function showOutputImage(b64png) {
+            hideStatus();
+            document.getElementById("run-btn").disabled = false;
+            const img = document.getElementById("output-img");
+            img.src = "data:image/png;base64," + b64png;
+            const sec = document.getElementById("output-section");
+            sec.classList.add("visible");
+            sec.scrollIntoView({ behavior: "smooth", block: "start" });
+            showToast("Simulation complete ✓");
+        }
+
+        function showPyError(msg) {
+            hideStatus();
+            document.getElementById("run-btn").disabled = false;
+            showError("Python error: " + msg);
+        }
+
+        function downloadImage() {
+            const img = document.getElementById("output-img");
+            if (!img.src || img.src === location.href) return;
+            const a = document.createElement("a");
+            a.href = img.src;
+            a.download = "scheduling_output.png";
+            a.click();
+            showToast("Image downloaded");
+        }
+
+        function clearAll() {
+            document.getElementById("tbody").innerHTML = "";
+            rowCount = 0;
+            document.getElementById("output-section").classList.remove("visible");
+            document.getElementById("error-msg").classList.remove("visible");
+            addRow(); addRow(); addRow();
+            document.querySelector('[data-field=arrival]').focus();
+        }
+
+        function loadDemo() {
+            document.getElementById("tbody").innerHTML = "";
+            rowCount = 0;
+            const demo = [["P1", 0, 8], ["P2", 1, 4], ["P3", 2, 9], ["P4", 3, 5], ["P5", 3, 5]];
+            demo.forEach(([pid, arr, bst]) => addRow(pid, arr, bst));
+            document.getElementById("quantum").value = 4;
+            document.getElementById("error-msg").classList.remove("visible");
+            showToast("Demo loaded");
+            setTimeout(() => runSimulator(), 300);
+        }
+
+        function showError(msg) {
+            const el = document.getElementById("error-msg");
+            el.textContent = msg; el.classList.add("visible");
+        }
+
+        function showToast(msg) {
+            const t = document.getElementById("toast");
+            t.textContent = msg; t.classList.add("show");
+            setTimeout(() => t.classList.remove("show"), 2000);
+        }
+
+        // Init with 3 empty rows
+        addRow(); addRow(); addRow();
+        document.querySelector('[data-field=arrival]').focus();
+    </script>
+
+    <!-- ═══════════════════ PyScript — original Python logic, only output changed to base64 ═══════════════════ -->
+    <script type="py" config='{"packages":["matplotlib","numpy"]}'>
+"""
+CPU Scheduling Simulator
+Supports: FCFS, SJF (Non-preemptive), SJF (Preemptive / SRTF), Round Robin
+Output: Gantt chart image, timing tables, performance comparison, edge case report
+"""
+
+import json
+import copy
+import base64
+import io
+from collections import deque
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.ticker
+import matplotlib.gridspec as gridspec
+import numpy as np
+
+from pyscript import document, window
+
+# Signal JS that Python runtime is ready
+window.setPyReady()
+
+# ─────────────────────────────────────────────
+# Data structures
+# ─────────────────────────────────────────────
+
+def load_processes_from_json(raw):
+    """Load from JSON string passed by JS."""
+    return json.loads(raw)
+
+
+# ─────────────────────────────────────────────
+# Edge-case detector
+# ─────────────────────────────────────────────
+
+def detect_edge_cases(processes):
+    cases = []
+    arrivals = [p["arrival"] for p in processes]
+    # 1. Multiple processes at same arrival time
+    seen = {}
+    for a in arrivals:
+        seen[a] = seen.get(a, 0) + 1
+    ties = [t for t, c in seen.items() if c > 1]
+    if ties:
+        cases.append({
+            "type": "Simultaneous arrival",
+            "detail": f"At time(s) {ties}: multiple processes arrive together.",
+            "handling": "Tie-broken by Process ID (lexicographic order) within the same arrival time."
+        })
+    # 2. First arrival > 0 → idle CPU at start
+    min_arr = min(arrivals)
+    if min_arr > 0:
+        cases.append({
+            "type": "CPU idle at start",
+            "detail": f"No process arrives until t={min_arr}.",
+            "handling": f"CPU marked IDLE from t=0 to t={min_arr} in Gantt chart."
+        })
+    # 3. Zero burst
+    zero_burst = [p["pid"] for p in processes if p["burst"] == 0]
+    if zero_burst:
+        cases.append({
+            "type": "Zero burst time",
+            "detail": f"Process(es) {zero_burst} have burst=0.",
+            "handling": "Treated as instant completion; WT=0, TAT=0."
+        })
+    return cases
+
+
+# ─────────────────────────────────────────────
+# Algorithm implementations
+# ─────────────────────────────────────────────
+
+def fcfs(processes):
+    """First Come First Serve — non-preemptive, tie-break by PID."""
+    procs = sorted(processes, key=lambda p: (p["arrival"], p["pid"]))
+    time = 0
+    gantt = []
+    results = []
+    for p in procs:
+        if time < p["arrival"]:
+            gantt.append(("IDLE", time, p["arrival"]))
+            time = p["arrival"]
+        start = time
+        finish = time + p["burst"]
+        gantt.append((p["pid"], start, finish))
+        wt = start - p["arrival"]
+        tat = finish - p["arrival"]
+        results.append({"pid": p["pid"], "arrival": p["arrival"], "burst": p["burst"],
+                         "start": start, "finish": finish, "wt": wt, "tat": tat})
+        time = finish
+    return gantt, results
+
+
+def sjf_non_preemptive(processes):
+    """Shortest Job First — non-preemptive."""
+    remaining = sorted(copy.deepcopy(processes), key=lambda p: (p["arrival"], p["pid"]))
+    time = 0
+    gantt = []
+    results = []
+    done = set()
+    while len(done) < len(processes):
+        ready = [p for p in remaining if p["arrival"] <= time and p["pid"] not in done]
+        if not ready:
+            next_arrival = min(p["arrival"] for p in remaining if p["pid"] not in done)
+            gantt.append(("IDLE", time, next_arrival))
+            time = next_arrival
+            continue
+        chosen = min(ready, key=lambda p: (p["burst"], p["pid"]))
+        start = time
+        finish = time + chosen["burst"]
+        gantt.append((chosen["pid"], start, finish))
+        wt = start - chosen["arrival"]
+        tat = finish - chosen["arrival"]
+        results.append({"pid": chosen["pid"], "arrival": chosen["arrival"],
+                         "burst": chosen["burst"], "start": start, "finish": finish,
+                         "wt": wt, "tat": tat})
+        done.add(chosen["pid"])
+        time = finish
+    return gantt, results
+
+
+def sjf_preemptive(processes):
+    """Shortest Remaining Time First (SRTF) — preemptive SJF."""
+    procs = {p["pid"]: {"pid": p["pid"], "arrival": p["arrival"],
+                         "burst": p["burst"], "remaining": p["burst"]} for p in processes}
+    time = 0
+    gantt = []
+    results = {}
+    start_times = {}
+    done = set()
+
+    while len(done) < len(processes):
+        ready = [p for p in procs.values() if p["arrival"] <= time and p["pid"] not in done]
+        if not ready:
+            next_arrival = min(p["arrival"] for p in procs.values() if p["pid"] not in done)
+            if not gantt or gantt[-1][0] != "IDLE":
+                gantt.append(["IDLE", time, next_arrival])
+            else:
+                gantt[-1][2] = next_arrival
+            time = next_arrival
+            continue
+
+        chosen = min(ready, key=lambda p: (p["remaining"], p["pid"]))
+        if chosen["pid"] not in start_times:
+            start_times[chosen["pid"]] = time
+
+        if gantt and gantt[-1][0] == chosen["pid"]:
+            gantt[-1][2] += 1
+        else:
+            gantt.append([chosen["pid"], time, time + 1])
+
+        procs[chosen["pid"]]["remaining"] -= 1
+        time += 1
+
+        if procs[chosen["pid"]]["remaining"] == 0:
+            p = procs[chosen["pid"]]
+            finish = time
+            wt = finish - p["arrival"] - p["burst"]
+            tat = finish - p["arrival"]
+            results[p["pid"]] = {"pid": p["pid"], "arrival": p["arrival"],
+                                   "burst": p["burst"], "start": start_times[p["pid"]],
+                                   "finish": finish, "wt": wt, "tat": tat}
+            done.add(p["pid"])
+
+    gantt_tuples = [(g[0], g[1], g[2]) for g in gantt]
+    ordered = sorted(results.values(), key=lambda r: r["finish"])
+    return gantt_tuples, ordered
+
+
+def round_robin(processes, quantum=4):
+    """Round Robin with given time quantum."""
+    procs = {p["pid"]: {"pid": p["pid"], "arrival": p["arrival"],
+                         "burst": p["burst"], "remaining": p["burst"]} for p in processes}
+    order = sorted(processes, key=lambda p: (p["arrival"], p["pid"]))
+    time = 0
+    queue = deque()
+    arrived = set()
+    gantt = []
+    results = {}
+    start_times = {}
+    remaining_list = list(order)
+
+    def enqueue_arrived(t):
+        for p in remaining_list:
+            if p["pid"] not in arrived and procs[p["pid"]]["arrival"] <= t and procs[p["pid"]]["remaining"] > 0:
+                queue.append(p["pid"])
+                arrived.add(p["pid"])
+
+    enqueue_arrived(time)
+    if not queue:
+        next_arr = min(p["arrival"] for p in processes)
+        gantt.append(("IDLE", time, next_arr))
+        time = next_arr
+        enqueue_arrived(time)
+
+    done = set()
+    while len(done) < len(processes):
+        if not queue:
+            not_done = [p for p in order if p["pid"] not in done]
+            if not not_done:
+                break
+            next_arr = min(procs[p["pid"]]["arrival"] for p in not_done)
+            gantt.append(("IDLE", time, next_arr))
+            time = next_arr
+            enqueue_arrived(time)
+            continue
+
+        pid = queue.popleft()
+        p = procs[pid]
+        if pid not in start_times:
+            start_times[pid] = time
+        run = min(quantum, p["remaining"])
+        start = time
+        finish = time + run
+        gantt.append((pid, start, finish))
+        p["remaining"] -= run
+        time = finish
+        enqueue_arrived(time)
+
+        if p["remaining"] == 0:
+            wt = finish - p["arrival"] - p["burst"]
+            tat = finish - p["arrival"]
+            results[pid] = {"pid": pid, "arrival": p["arrival"], "burst": p["burst"],
+                             "start": start_times[pid], "finish": finish, "wt": wt, "tat": tat}
+            done.add(pid)
+        else:
+            queue.append(pid)
+
+    ordered = sorted(results.values(), key=lambda r: r["finish"])
+    return gantt, ordered
+
+
+# ─────────────────────────────────────────────
+# Plotting  (identical to original cpu_scheduler.py)
+# ─────────────────────────────────────────────
+
+COLORS = {
+    "P1":  "#5B8FF9", "P2":  "#5AD8A6", "P3":  "#F6BD16",
+    "P4":  "#E86452", "P5":  "#6DC8EC", "P6":  "#945FB9",
+    "P7":  "#FF9845", "P8":  "#1E9493", "IDLE": "#D3D3D3",
+}
+
+def get_color(pid):
+    if pid == "IDLE":
+        return "#D3D3D3"
+    if pid not in COLORS:
+        import hashlib
+        hx = int(hashlib.md5(pid.encode()).hexdigest()[:6], 16)
+        COLORS[pid] = f"#{hx:06X}"
+    return COLORS[pid]
+
+
+def draw_gantt(ax, gantt, title, y=0.5, height=0.6):
+    ax.set_title(title, fontsize=12, fontweight="bold", pad=6)
+    ax.set_ylim(0, 1)
+    ax.set_yticks([])
+    max_t = max(end for _, _, end in gantt)
+    ax.set_xlim(-0.2, max_t + 0.5)
+    ax.set_xlabel("Time", fontsize=9)
+    ax.xaxis.set_minor_locator(matplotlib.ticker.MultipleLocator(1))
+
+    for pid, start, end in gantt:
+        color = get_color(pid)
+        rect = mpatches.FancyBboxPatch((start, y - height / 2), end - start, height,
+                                        boxstyle="round,pad=0.02", linewidth=0.8,
+                                        edgecolor="white", facecolor=color)
+        ax.add_patch(rect)
+        mid = (start + end) / 2
+        label = pid if (end - start) >= 1 else ""
+        ax.text(mid, y, label, ha="center", va="center", fontsize=8, fontweight="bold",
+                color="white" if pid != "IDLE" else "#555")
+        ax.text(start, y - height / 2 - 0.12, str(start), ha="center", fontsize=7, color="#444")
+    ax.text(max_t, y - height / 2 - 0.12, str(max_t), ha="center", fontsize=7, color="#444")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+
+
+def draw_table(ax, results, title):
+    ax.axis("off")
+    ax.set_title(title, fontsize=11, fontweight="bold", pad=4)
+    cols = ["PID", "Arrival", "Burst", "Start", "Finish", "WT", "TAT"]
+    rows = [[r["pid"], r["arrival"], r["burst"], r["start"],
+             r["finish"], r["wt"], r["tat"]] for r in results]
+    avg_wt  = np.mean([r["wt"]  for r in results])
+    avg_tat = np.mean([r["tat"] for r in results])
+    rows.append(["Avg", "", "", "", "", f"{avg_wt:.2f}", f"{avg_tat:.2f}"])
+
+    table = ax.table(cellText=rows, colLabels=cols, loc="center", cellLoc="center")
+    table.auto_set_font_size(False)
+    table.set_fontsize(8.5)
+    table.scale(1, 1.4)
+    for (row, col), cell in table.get_celld().items():
+        cell.set_edgecolor("#cccccc")
+        if row == 0:
+            cell.set_facecolor("#4472C4")
+            cell.set_text_props(color="white", fontweight="bold")
+        elif row == len(rows):
+            cell.set_facecolor("#DDEEFF")
+            cell.set_text_props(fontweight="bold")
+        else:
+            cell.set_facecolor("#F5F8FF" if row % 2 == 0 else "white")
+
+
+def draw_comparison(ax, algo_names, avg_wts, avg_tats):
+    ax.set_title("Performance Comparison", fontsize=12, fontweight="bold", pad=8)
+    x = np.arange(len(algo_names))
+    w = 0.35
+    b1 = ax.bar(x - w/2, avg_wts,  w, label="Avg Waiting Time",    color="#5B8FF9", edgecolor="white")
+    b2 = ax.bar(x + w/2, avg_tats, w, label="Avg Turnaround Time", color="#5AD8A6", edgecolor="white")
+    ax.set_xticks(x)
+    ax.set_xticklabels(algo_names, fontsize=9)
+    ax.set_ylabel("Time (units)", fontsize=9)
+    ax.legend(fontsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.yaxis.grid(True, linestyle="--", alpha=0.5)
+    ax.set_axisbelow(True)
+    for bar in [*b1, *b2]:
+        h = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2, h + 0.1, f"{h:.1f}",
+                ha="center", va="bottom", fontsize=7.5)
+
+
+def draw_edge_cases(ax, cases):
+    ax.axis("off")
+    ax.set_title("Edge Cases Detected & Handled", fontsize=11, fontweight="bold", pad=4)
+    if not cases:
+        ax.text(0.5, 0.5, "No edge cases detected.", ha="center", va="center",
+                fontsize=10, color="#555", transform=ax.transAxes)
+        return
+
+    y = 0.95
+    line_h = 0.28 / len(cases) if len(cases) > 3 else 0.28
+    for case in cases:
+        ax.text(0.02, y, f"• {case['type']}", fontsize=9.5, fontweight="bold",
+                color="#1a1a2e", transform=ax.transAxes, va="top")
+        y -= 0.075
+        ax.text(0.04, y, f"Detected: {case['detail']}", fontsize=8.5,
+                color="#444", transform=ax.transAxes, va="top", wrap=True)
+        y -= 0.075
+        ax.text(0.04, y, f"Handled:  {case['handling']}", fontsize=8.5,
+                color="#1a6b3a", transform=ax.transAxes, va="top", wrap=True)
+        y -= 0.10
+
+
+# ─────────────────────────────────────────────
+# Main runner  (same logic as original run())
+# ─────────────────────────────────────────────
+
+def run_scheduler(event):
+    try:
+        processes = load_processes_from_json(window._schedulerProcesses)
+        quantum   = int(window._schedulerQuantum)
+
+        edge_cases = detect_edge_cases(processes)
+
+        fcfs_gantt,  fcfs_res  = fcfs(processes)
+        sjf_gantt,   sjf_res   = sjf_non_preemptive(processes)
+        srtf_gantt,  srtf_res  = sjf_preemptive(processes)
+        rr_gantt,    rr_res    = round_robin(processes, quantum)
+
+        def avgs(res):
+            return (np.mean([r["wt"] for r in res]), np.mean([r["tat"] for r in res]))
+
+        algo_names = ["FCFS", "SJF\n(Non-preemp)", "SRTF\n(Preemptive)", f"Round Robin\n(Q={quantum})"]
+        a_fcfs  = avgs(fcfs_res)
+        a_sjf   = avgs(sjf_res)
+        a_srtf  = avgs(srtf_res)
+        a_rr    = avgs(rr_res)
+        avg_wts  = [a_fcfs[0],  a_sjf[0],  a_srtf[0],  a_rr[0]]
+        avg_tats = [a_fcfs[1],  a_sjf[1],  a_srtf[1],  a_rr[1]]
+
+        # ── Layout (identical to original) ──────────────────────────────────
+        fig = plt.figure(figsize=(18, 28))
+        fig.patch.set_facecolor("#FAFAFA")
+
+        fig.text(0.5, 0.985, "CPU Scheduling Simulator — Results",
+                 ha="center", va="top", fontsize=16, fontweight="bold", color="#1a1a2e")
+
+        gs = gridspec.GridSpec(8, 2, figure=fig,
+                               hspace=0.65, wspace=0.35,
+                               top=0.975, bottom=0.02, left=0.05, right=0.97)
+
+        ax_g1 = fig.add_subplot(gs[0, :])
+        ax_g2 = fig.add_subplot(gs[1, :])
+        ax_g3 = fig.add_subplot(gs[2, :])
+        ax_g4 = fig.add_subplot(gs[3, :])
+
+        draw_gantt(ax_g1, fcfs_gantt,  "FCFS — Gantt Chart")
+        draw_gantt(ax_g2, sjf_gantt,   "SJF (Non-Preemptive) — Gantt Chart")
+        draw_gantt(ax_g3, srtf_gantt,  "SRTF (Preemptive SJF) — Gantt Chart")
+        draw_gantt(ax_g4, rr_gantt,    f"Round Robin (Quantum={quantum}) — Gantt Chart")
+
+        ax_t1 = fig.add_subplot(gs[4, 0])
+        ax_t2 = fig.add_subplot(gs[4, 1])
+        ax_t3 = fig.add_subplot(gs[5, 0])
+        ax_t4 = fig.add_subplot(gs[5, 1])
+
+        draw_table(ax_t1, fcfs_res,  "FCFS — Timing Table")
+        draw_table(ax_t2, sjf_res,   "SJF (Non-Preemptive) — Timing Table")
+        draw_table(ax_t3, srtf_res,  "SRTF (Preemptive SJF) — Timing Table")
+        draw_table(ax_t4, rr_res,    f"Round Robin (Q={quantum}) — Timing Table")
+
+        ax_cmp = fig.add_subplot(gs[6, 0])
+        draw_comparison(ax_cmp, algo_names, avg_wts, avg_tats)
+
+        ax_ec = fig.add_subplot(gs[6, 1])
+        draw_edge_cases(ax_ec, edge_cases)
+
+        best_idx = int(np.argmin(avg_wts))
+        ax_note = fig.add_subplot(gs[7, :])
+        ax_note.axis("off")
+        note_text = (
+            f"Best Avg Waiting Time: {algo_names[best_idx].replace(chr(10),' ')}  "
+            f"({avg_wts[best_idx]:.2f} units)   |   "
+            f"Best Avg Turnaround: {algo_names[int(np.argmin(avg_tats))].replace(chr(10),' ')}  "
+            f"({min(avg_tats):.2f} units)"
+        )
+        ax_note.text(0.5, 0.6, note_text, ha="center", va="center",
+                     fontsize=11, color="#185FA5",
+                     bbox=dict(facecolor="#E6F1FB", edgecolor="#378ADD", boxstyle="round,pad=0.5"))
+
+        # ── Save to in-memory buffer instead of disk, return as base64 ──────
+        buf = io.BytesIO()
+        plt.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+        plt.close()
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode("utf-8")
+        window.showOutputImage(b64)
+
+    except Exception as e:
+        import traceback
+        window.showPyError(str(e) + "\n" + traceback.format_exc())
+
+
+document.addEventListener("scheduler-run", run_scheduler)
+</script>
+
+</body>
+
+</html>
